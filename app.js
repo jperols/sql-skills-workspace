@@ -1,13 +1,42 @@
-(function () {
+(async function () {
   "use strict";
   const $ = id => document.getElementById(id);
   const config = window.SQL_WORKSPACE_CONFIG;
+  const sessions = window.SQLWorkspaceSession;
+  const mode = document.body.dataset.workspace;
+  let session;
+  function showSessionGate(title, message) {
+    $("session-title").textContent = title;
+    $("session-message").textContent = message;
+    $("session-retry").hidden = false;
+  }
+  $("session-retry").addEventListener("click", () => window.location.reload());
+  try {
+    let testSettings;
+    if (mode === "test") {
+      const response = await fetch("test-settings.json", { cache: "no-store" });
+      if (!response.ok) throw new Error("The test settings could not be loaded.");
+      testSettings = await response.json();
+    }
+    session = sessions.resolve(mode, config, testSettings);
+  } catch (_) {
+    showSessionGate("Workspace unavailable", "The workspace settings could not be verified. Check again, or ask your instructor for help.");
+    return;
+  }
+  $("workspace-label").textContent = session.label;
+  document.title = mode === "test" ? "SQL Workspace · Test" : "SQL Workspace · Practice";
+  if (!session.open) {
+    showSessionGate("The test is not open", "Wait for your instructor to open the test, then select Check again.");
+    return;
+  }
+  $("session-gate").hidden = true;
+  $("workspace").hidden = false;
+  $("top-actions").hidden = false;
   const core = window.SQLWorkspaceCore;
   const support = window.SQLWorkspaceEditorSupport;
   const keywordNames = Object.keys(CodeMirror.resolveMode("text/x-sqlite").keywords);
   const limit = Math.max(1, Number(config.maxDisplayedRows) || 1000);
   const pageSize = Math.max(1, Number(config.pageSize) || 100);
-  const draftKey = "sql-workspace-draft:" + (config.draftVersion || "v1");
   const state = { ready: false, busy: false, schema: [], expanded: new Set(), results: [], active: 0, page: 0, id: 0, timer: null, context: null };
   let worker, errorLine = null, errorWidget = null, cleanupUndo = null, draftWarning = false;
   const editor = CodeMirror.fromTextArea($("sql-editor"), {
@@ -23,11 +52,10 @@
   editor.getInputField().setAttribute("aria-label", "SQL editor");
   editor.getInputField().setAttribute("autocorrect", "off");
   editor.getInputField().setAttribute("autocapitalize", "off");
-  $("workspace-label").textContent = config.label;
   $("database-name").textContent = config.databaseName;
-  let initial = config.initialSQL || "";
+  let initial = mode === "test" ? "" : (config.initialSQL || "");
   if (config.preserveQueryInTab) {
-    try { const draft = sessionStorage.getItem(draftKey); if (draft !== null) initial = draft; }
+    try { initial = sessions.restore(sessionStorage, session, mode === "test" ? "" : initial); }
     catch (_) { draftWarning = true; }
   }
   editor.setValue(initial); editor.clearHistory();
@@ -100,7 +128,7 @@
   }
   function saveDraft() {
     if (!config.preserveQueryInTab) return;
-    try { sessionStorage.setItem(draftKey, editor.getValue()); }
+    try { sessions.save(sessionStorage, session, editor.getValue()); }
     catch (_) {
       if (!draftWarning) { notify("This browser cannot save the draft across refreshes. Copy your SQL into Canvas before leaving."); draftWarning = true; }
     }

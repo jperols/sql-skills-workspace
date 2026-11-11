@@ -5,26 +5,28 @@
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'">
   <meta name="description" content="A focused SQL workspace for skills tests. Explore tables, write SQLite queries, and inspect results.">
-  <title>SQL Workspace</title>
+  <title>SQL Workspace · Practice</title>
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/codemirror.css">
   <link rel="stylesheet" href="assets/codemirror-show-hint.css">
-  <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="styles.css?v=2">
   <script defer src="assets/codemirror.js"></script>
   <script defer src="assets/codemirror-sql.js"></script>
   <script defer src="assets/codemirror-placeholder.js"></script>
   <script defer src="assets/codemirror-show-hint.js"></script>
-  <script defer src="config.js"></script>
+  <script defer src="config.js?v=2"></script>
   <script defer src="sql-core.js"></script>
   <script defer src="editor-support.js"></script>
-  <script defer src="app.js"></script>
+  <script defer src="workspace-session.js"></script>
+  <script defer src="app.js?v=2"></script>
 </head>
-<body>
+<body data-workspace="practice">
   <header class="topbar">
-    <div class="brand"><img src="icon.svg" alt="" width="38" height="38"><div><h1>SQL Workspace</h1><p id="workspace-label">Skills test · Northwind</p></div></div>
-    <div class="top-actions"><button id="help-button" class="button quiet">Help</button><button id="copy-button" class="button secondary">Copy SQL</button><button id="run-button" class="button primary" disabled><span id="run-icon" aria-hidden="true">▶︎</span><span id="run-label">Run</span><kbd>Ctrl ↵</kbd></button></div>
+    <div class="brand"><img src="icon.svg" alt="" width="38" height="38"><div><h1>SQL Workspace</h1><p id="workspace-label">Practice · Northwind</p></div></div>
+    <div id="top-actions" class="top-actions" hidden><button id="help-button" class="button quiet">Help</button><button id="copy-button" class="button secondary">Copy SQL</button><button id="run-button" class="button primary" disabled><span id="run-icon" aria-hidden="true">▶︎</span><span id="run-label">Run</span><kbd>Ctrl ↵</kbd></button></div>
   </header>
-  <div class="workspace">
+  <main id="session-gate" class="session-gate" aria-live="polite"><div><img src="icon.svg" alt="" width="48" height="48"><h2 id="session-title">Loading workspace…</h2><p id="session-message">Please wait while the workspace is prepared.</p><button id="session-retry" class="button primary" hidden>Check again</button><noscript><p>JavaScript must be enabled to use the SQL workspace.</p></noscript></div></main>
+  <div id="workspace" class="workspace" hidden>
     <aside class="sidebar" aria-label="Database tables">
       <div class="sidebar-title"><h2>Tables</h2><span id="table-count" class="count-badge">—</span></div>
       <p id="database-name" class="database-name">northwind_skills_test.db</p>
@@ -58,7 +60,7 @@
       <h3>Copy to and from Canvas</h3><p><strong>Copy SQL</strong> copies the highlighted selection, or all your SQL if nothing is selected, as plain text. Paste it into your Canvas answer. You can paste SQL back into this editor. Clipboard access still depends on Canvas and your exam browser settings; this workspace does not bypass those restrictions.</p>
       <h3>Clean pasted text</h3><p>The editor checks pasted SQL for unusual spaces, invisible formatting characters, and curly quotation marks. Cleanup preserves characters inside existing quoted values and comments. A notification identifies changes and offers <strong>Undo cleanup</strong>. <strong>Clean text</strong> checks the full editor; Run also checks before executing. Review quoted values yourself if they contain unwanted characters.</p>
       <h3>Understand errors</h3><p>After Run, SQLite’s original error appears beside the failed statement in the editor and in the results panel. The marker identifies the <strong>start of the failed statement</strong>, not necessarily the exact character causing the error. Inline markers clear when you edit the SQL. There is no separate background syntax checker and no added explanation or suggested correction.</p><p>Execution stops at the first error. Earlier successful statements remain applied, and their result tabs remain available.</p>
-      <h3>Reset, stop, and save</h3><p><strong>Reset database</strong> restores the original data while keeping your SQL. Stopping a long query, or reaching its time limit, also resets the database. Changes to the database stay in this browser tab’s memory.</p><p>Your SQL draft is restored after refreshing this tab when browser storage is available. It is not a submitted answer or a backup. Copy your final SQL into Canvas as instructed.</p>
+      <h3>Reset, stop, and save</h3><p><strong>Reset database</strong> restores the original data while keeping your SQL. Stopping a long query, or reaching its time limit, also resets the database. Changes to the database stay in this browser tab’s memory. Refreshing the page removes created views and other database changes.</p><p>Practice and test drafts are separate. Your SQL draft is restored after refreshing this tab within the same practice or test session when browser storage is available. Each new test starts with its own draft. It is not a submitted answer or a backup. Copy your final SQL into Canvas as instructed.</p>
     </div><div class="dialog-footer"><button id="help-done" class="button primary">Got it</button></div>
   </dialog>
 </body>

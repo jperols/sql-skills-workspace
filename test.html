@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; worker-src 'self'; connect-src 'self'; img-src 'self' data:; base-uri 'none'; form-action 'none'; object-src 'none'">
+  <meta name="description" content="A focused SQL workspace for skills tests. Explore tables, write SQLite queries, and inspect results.">
+  <title>SQL Workspace · Test</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="assets/codemirror.css">
+  <link rel="stylesheet" href="assets/codemirror-show-hint.css">
+  <link rel="stylesheet" href="styles.css?v=2">
+  <script defer src="assets/codemirror.js"></script>
+  <script defer src="assets/codemirror-sql.js"></script>
+  <script defer src="assets/codemirror-placeholder.js"></script>
+  <script defer src="assets/codemirror-show-hint.js"></script>
+  <script defer src="config.js?v=2"></script>
+  <script defer src="sql-core.js"></script>
+  <script defer src="editor-support.js"></script>
+  <script defer src="workspace-session.js"></script>
+  <script defer src="app.js?v=2"></script>
+</head>
+<body data-workspace="test">
+  <header class="topbar">
+    <div class="brand"><img src="icon.svg" alt="" width="38" height="38"><div><h1>SQL Workspace</h1><p id="workspace-label">Test · Northwind</p></div></div>
+    <div id="top-actions" class="top-actions" hidden><button id="help-button" class="button quiet">Help</button><button id="copy-button" class="button secondary">Copy SQL</button><button id="run-button" class="button primary" disabled><span id="run-icon" aria-hidden="true">▶︎</span><span id="run-label">Run</span><kbd>Ctrl ↵</kbd></button></div>
+  </header>
+  <main id="session-gate" class="session-gate" aria-live="polite"><div><img src="icon.svg" alt="" width="48" height="48"><h2 id="session-title">Loading workspace…</h2><p id="session-message">Please wait while the workspace is prepared.</p><button id="session-retry" class="button primary" hidden>Check again</button><noscript><p>JavaScript must be enabled to use the SQL workspace.</p></noscript></div></main>
+  <div id="workspace" class="workspace" hidden>
+    <aside class="sidebar" aria-label="Database tables">
+      <div class="sidebar-title"><h2>Tables</h2><span id="table-count" class="count-badge">—</span></div>
+      <p id="database-name" class="database-name">northwind_skills_test.db</p>
+      <label class="search-box"><span aria-hidden="true">⌕</span><input id="schema-search" type="search" placeholder="Find table or column…" aria-label="Find table or column"></label>
+      <div id="table-list" class="table-list"><p class="muted loading">Loading database…</p></div>
+      <div class="sidebar-footer"><span id="db-state"><i></i> Loading database</span><button id="reset-button" class="text-button" disabled>Reset database</button></div>
+    </aside>
+    <main id="query-workspace" class="query-workspace">
+      <section class="editor-panel" aria-labelledby="editor-title">
+        <div class="panel-heading"><div class="heading-group"><h2 id="editor-title">SQL editor</h2><span class="engine-badge">SQLite</span></div><div class="editor-tools"><span id="selection-hint">Run executes all SQL</span><button id="complete-button" class="text-button" title="Show keywords, tables, and columns (Ctrl+Space)">Complete <kbd>Ctrl+Space</kbd></button><button id="clean-button" class="text-button" title="Clean formatting characters introduced by copying and pasting">Clean text</button></div></div>
+        <div id="editor-host" class="editor-host"><textarea id="sql-editor" aria-label="SQL editor" placeholder="Write your SQL query here…" spellcheck="false"></textarea></div>
+        <div class="editor-footer"><span id="cursor-status">Ln 1, Col 1</span><span>Ctrl + Enter to run <span class="shortcut-extra">· Select SQL to run only that part</span></span></div>
+      </section>
+      <div id="splitter" class="splitter" role="separator" tabindex="0" aria-label="Resize editor and results" aria-orientation="horizontal" aria-valuemin="20" aria-valuemax="80" aria-valuenow="48"><span></span></div>
+      <section class="results-panel" aria-labelledby="results-heading">
+        <div class="panel-heading"><div class="heading-group"><h2 id="results-heading">Results</h2><span id="row-count" class="row-count" aria-live="polite" hidden></span></div><div class="result-tools"><span id="execution-time"></span><button id="clear-results" class="text-button" hidden>Clear</button></div></div>
+        <div id="result-tabs" class="result-tabs" role="tablist" aria-label="Statement results" hidden></div>
+        <div id="error-panel" class="error-panel" role="alert" hidden></div>
+        <div id="results-body" class="results-body"><div class="empty-state"><div class="empty-icon" aria-hidden="true">▤</div><h3>Your results will appear here</h3><p>Write a query and select <strong>Run</strong>, or preview a table from the left.</p></div></div>
+        <div class="results-footer"><span id="result-detail">Ready when you are.</span><div id="pagination" class="pagination" hidden><button id="page-prev" aria-label="Previous page">←</button><span id="page-label"></span><button id="page-next" aria-label="Next page">→</button></div></div>
+      </section>
+    </main>
+  </div>
+  <div id="notice" class="notice" role="status" hidden><span id="notice-text"></span><button id="notice-undo" hidden>Undo cleanup</button><button id="notice-close" aria-label="Dismiss notification">×</button></div>
+  <dialog id="help-dialog">
+    <div class="dialog-heading"><h2>Using SQL Workspace</h2><button id="help-close" class="close-button" aria-label="Close help">×</button></div>
+    <div class="help-content">
+      <h3>Explore the database</h3><p>Expand a table to see its columns and data types. Select <strong>Preview</strong> to see its records below the editor. Previewing a table does not replace your SQL.</p>
+      <h3>Run your SQL</h3><p>Select <strong>Run</strong>, or press <strong>Ctrl + Enter</strong> (Cmd + Enter on Mac) or <strong>Shift + Enter</strong>. Highlight part of your SQL to run only that selection. Separate multiple statements with semicolons; each statement gets its own results tab. Large results show the total number of rows returned and a limited preview.</p>
+      <h3>Complete a word or name</h3><p>Press <strong>Ctrl + Space</strong> or select <strong>Complete</strong> for matching SQLite keywords, tables, views, and columns. Use the arrow keys and Enter or Tab to insert a suggestion; Escape closes the list. Completion changes only the current word, after you choose a suggestion. It is unavailable inside text values or comments.</p><p>Typing a table’s name and a period narrows the list to that table’s columns. For other prefixes, such as an alias, the list shows matching columns from the database; it does not analyze aliases, joins, or common table expressions. The source table is shown beside each column.</p>
+      <h3>Copy to and from Canvas</h3><p><strong>Copy SQL</strong> copies the highlighted selection, or all your SQL if nothing is selected, as plain text. Paste it into your Canvas answer. You can paste SQL back into this editor. Clipboard access still depends on Canvas and your exam browser settings; this workspace does not bypass those restrictions.</p>
+      <h3>Clean pasted text</h3><p>The editor checks pasted SQL for unusual spaces, invisible formatting characters, and curly quotation marks. Cleanup preserves characters inside existing quoted values and comments. A notification identifies changes and offers <strong>Undo cleanup</strong>. <strong>Clean text</strong> checks the full editor; Run also checks before executing. Review quoted values yourself if they contain unwanted characters.</p>
+      <h3>Understand errors</h3><p>After Run, SQLite’s original error appears beside the failed statement in the editor and in the results panel. The marker identifies the <strong>start of the failed statement</strong>, not necessarily the exact character causing the error. Inline markers clear when you edit the SQL. There is no separate background syntax checker and no added explanation or suggested correction.</p><p>Execution stops at the first error. Earlier successful statements remain applied, and their result tabs remain available.</p>
+      <h3>Reset, stop, and save</h3><p><strong>Reset database</strong> restores the original data while keeping your SQL. Stopping a long query, or reaching its time limit, also resets the database. Changes to the database stay in this browser tab’s memory. Refreshing the page removes created views and other database changes.</p><p>Practice and test drafts are separate. Your SQL draft is restored after refreshing this tab within the same practice or test session when browser storage is available. Each new test starts with its own draft. It is not a submitted answer or a backup. Copy your final SQL into Canvas as instructed.</p>
+    </div><div class="dialog-footer"><button id="help-done" class="button primary">Got it</button></div>
+  </dialog>
+</body>
+</html>
+

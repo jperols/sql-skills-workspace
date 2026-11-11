@@ -1,6 +1,6 @@
 // Instructor settings. Keep the database and all assets on the same website.
 window.SQL_WORKSPACE_CONFIG = Object.freeze({
-  label: "Skills test · Northwind",
+  label: "Northwind",
   databaseName: "northwind_skills_test.db",
   databasePath: "data/northwind_skills_test.db",
   initialSQL: "",
@@ -8,6 +8,7 @@ window.SQL_WORKSPACE_CONFIG = Object.freeze({
   pageSize: 100,
   queryTimeoutMs: 15000,
   preserveQueryInTab: true,
-  draftVersion: "northwind-skills-v1"
+  // Practice drafts only. Each test uses testId from test-settings.json.
+  draftVersion: "northwind-practice-v1"
 });
 
