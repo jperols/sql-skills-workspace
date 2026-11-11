@@ -14,21 +14,23 @@ There are no added error explanations, suggested query corrections, or AI.
 - **Practice:** https://jperols.github.io/sql-skills-workspace/
 - **Test:** https://jperols.github.io/sql-skills-workspace/test.html
 
-The original link is now the practice workspace. The test page starts closed.
+The original link is the practice workspace. Both pages are open continuously;
+the test page uses `northwind-test-v1`. Closing the test remains optional.
 Each page has its own saved SQL draft and view definitions. Test drafts and views
 also belong to one test ID.
 Practice drafts and drafts from the earlier unseparated editor are never restored
 on the test page. Both pages load a fresh copy of the same bundled database;
 student-created views and changes are not shared.
 
-### Open each new test yourself
+### Start each new test with fresh work
 
 1. In this repository, open `test-settings.json`, then select the pencil to edit.
 2. Change `testId` to a **new, never-used value** for this test, for example
    `mgt153-2026-11-16-section1`. Use letters, numbers, hyphens, or underscores.
    Change `label` if you want a different displayed test name.
-3. Set `open` to `true` and commit the change to `main`. Publish the new ID when
-   the test opens, not in advance. Leave `config.js` unchanged.
+3. Leave `open` set to `true` and commit the change to `main`. To prevent prepared
+   work from returning, publish the new ID at the start of the exam rather than
+   in advance. Leave `config.js` unchanged.
 4. Wait for the GitHub Pages deployment to succeed. Reload the test link and
    verify that the right label appears and the editor starts empty in a fresh tab.
 5. Give students the **test** link in Canvas. Students already on the waiting
@@ -45,10 +47,13 @@ For example, the complete settings file for a new test can be:
 }
 ```
 
-After the test, set `open` to `false` and commit. This closes new visits and
-refreshes after deployment; it does not remotely erase or close tabs already
-open. For the next test, use another new ID before opening it. Reusing an ID
+You can leave both pages open at all times. If you want to close the test,
+set `open` to `false` and commit; set it back to `true` to reopen. Closing affects
+new visits and refreshes after deployment, not tabs already open.
+For the next exam, use another new ID and have students reload. Reusing an ID
 can restore that test's old draft and views in a surviving browser session.
+If the test page stays open under the same ID, students can prepare work there
+before the exam; separation from the practice page alone does not prevent that.
 
 Refreshing during the same test restores that test's SQL and saved view
 definitions, if session storage is available. The original database is loaded
@@ -190,6 +195,24 @@ updated by the student as well.
   submission, or cross-device save. Table edits do not survive refresh.
 
 ## Instructor settings
+
+### Windows and macOS
+
+The same SQLite engine and workspace features are used on both platforms.
+In the SQL editor, use Ctrl+Enter on Windows or Command+Enter on Mac to run SQL;
+Shift+Enter is an alternative on either platform. Copy/paste and Undo use Ctrl
+on Windows and Command on Mac. Redo uses Ctrl+Y or Ctrl+Shift+Z on Windows and
+Command+Shift+Z on Mac. Select all uses Ctrl+A or Command+A.
+
+Completion is bound to Control+Space on both platforms, with a Command+Space
+binding if the browser receives it. macOS commonly uses Command+Space for
+Spotlight and can use Control+Space for switching input sources, so the visible
+**Complete** button is the reliable fallback. The Run button is also available.
+Clipboard and shortcut availability in LockDown Browser depend on its settings;
+test the actual exam flow on both systems. Development browser checks used
+Chrome on Linux, not macOS or Respondus.
+
+### Configuration
 
 Edit **config.js** to change these settings:
 

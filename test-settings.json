@@ -1,5 +1,5 @@
 {
-  "open": false,
-  "testId": "not-started",
+  "open": true,
+  "testId": "northwind-test-v1",
   "label": "Northwind"
 }
