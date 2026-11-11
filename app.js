@@ -38,7 +38,7 @@
   const limit = Math.max(1, Number(config.maxDisplayedRows) || 1000);
   const pageSize = Math.max(1, Number(config.pageSize) || 100);
   const state = { ready: false, busy: false, schema: [], expanded: new Set(), results: [], active: 0, page: 0, id: 0, timer: null, context: null };
-  let worker, errorLine = null, errorWidget = null, cleanupUndo = null, draftWarning = false;
+  let worker, errorLine = null, errorWidget = null, cleanupUndo = null, draftWarning = false, activeView = null, viewSnapshot = null, draftLoadWarning = false;
   const editor = CodeMirror.fromTextArea($("sql-editor"), {
     mode: "text/x-sqlite", lineNumbers: true, lineWrapping: false, indentUnit: 2,
     tabSize: 2, autofocus: true, spellcheck: false, inputStyle: "textarea",
@@ -55,8 +55,12 @@
   $("database-name").textContent = config.databaseName;
   let initial = mode === "test" ? "" : (config.initialSQL || "");
   if (config.preserveQueryInTab) {
-    try { initial = sessions.restore(sessionStorage, session, mode === "test" ? "" : initial); }
-    catch (_) { draftWarning = true; }
+    try {
+      const saved = sessions.load(sessionStorage, session, initial);
+      initial = saved.sql;
+      if (saved.databasePath === config.databasePath) viewSnapshot = saved.views;
+    }
+    catch (_) { draftLoadWarning = true; }
   }
   editor.setValue(initial); editor.clearHistory();
 
@@ -128,9 +132,9 @@
   }
   function saveDraft() {
     if (!config.preserveQueryInTab) return;
-    try { sessions.save(sessionStorage, session, editor.getValue()); }
+    try { sessions.save(sessionStorage, session, editor.getValue(), viewSnapshot, config.databasePath); }
     catch (_) {
-      if (!draftWarning) { notify("This browser cannot save the draft across refreshes. Copy your SQL into Canvas before leaving."); draftWarning = true; }
+      if (!draftWarning) { notify("This browser could not save your SQL and views for recovery. Copy your work into Canvas before leaving."); draftWarning = true; }
     }
   }
   editor.on("cursorActivity", updateCursor);
@@ -181,7 +185,9 @@
     $("reset-button").disabled = busy || !state.ready;
     $("schema-search").disabled = busy;
     $("clear-results").disabled = busy;
-    document.querySelectorAll(".preview-button").forEach(b => { b.disabled = busy || !state.ready; });
+    document.querySelectorAll(".preview-button, .view-edit-button").forEach(b => { b.disabled = busy || !state.ready; });
+    ["view-save", "view-delete", "view-copy", "view-query"].forEach(id => { $(id).disabled = busy || !activeView; });
+    ["view-close", "view-done"].forEach(id => { $(id).disabled = busy; });
   }
   function updateDatabaseState(label, failed) {
     $("db-state").replaceChildren();
@@ -212,10 +218,20 @@
       const preview = element("button", "preview-button", "Preview");
       preview.setAttribute("aria-label", "Preview " + table.name);
       preview.disabled = !state.ready || state.busy;
-      preview.addEventListener("click", () => execute("SELECT * FROM " + core.quoteName(table.name) + ";", { preview: table.name, baseOffset: 0, editorText: null }));
+      preview.addEventListener("click", () => execute("SELECT * FROM main." + core.quoteName(table.name) + ";", { preview: table.name, baseOffset: 0, editorText: null }));
       heading.append(toggle, preview); group.append(heading);
+      if (table.type === "view") {
+        const actions = element("div", "view-actions");
+        actions.append(element("span", "view-badge", "View"));
+        const edit = element("button", "text-button view-edit-button", "View SQL / Edit");
+        edit.setAttribute("aria-label", "View SQL or edit " + table.name);
+        edit.disabled = !state.ready || state.busy;
+        edit.addEventListener("click", () => openView(table.name));
+        actions.append(edit); group.append(actions);
+      }
       if (open) {
         const columns = element("div", "column-list");
+        if (table.schemaError) columns.append(element("p", "view-schema-error", table.schemaError));
         for (const column of table.columns) {
           const row = element("div", "column-row"), name = element("span", "column-name");
           if (column.primary) { const key = element("span", "pk", "◆"); key.title = "Primary key"; name.append(key); }
@@ -244,14 +260,16 @@
     clearErrorHighlight();
     emptyState("Your results will appear here", "Write a query and select Run, or preview a table from the left.");
   }
-  function startWorker(message, stoppedReason) {
+  function startWorker(message, stoppedReason, savedViews) {
+    if ($("view-dialog").open) $("view-dialog").close();
+    activeView = null;
     if (editor.closeHint) editor.closeHint();
     if (worker) worker.terminate();
     clearTimeout(state.timer);
     state.ready = false; state.context = null;
     setBusy(false); updateDatabaseState("Loading database");
     $("reset-button").disabled = true;
-    const currentWorker = new Worker("worker.js");
+    const currentWorker = new Worker("worker.js?v=4");
     worker = currentWorker;
     state.timer = setTimeout(() => failLoading("The database took too long to load. Check your connection and select Retry database."), 30000);
     currentWorker.onmessage = function (event) {
@@ -259,6 +277,7 @@
       const data = event.data;
       if (data.type === "ready") {
         clearTimeout(state.timer); state.ready = true; setBusy(false);
+        viewSnapshot = data.views; saveDraft();
         if (!state.expanded.size && data.schema.length) state.expanded.add(data.schema[0].name);
         renderSchema(data.schema); updateDatabaseState("Database ready");
         $("reset-button").textContent = "Reset database";
@@ -267,8 +286,33 @@
           $("result-detail").textContent = "Database restored. Ready to run another query.";
         }
         if (message) notify(message);
+        else if (data.recoveryError) notify("Saved views could not be restored: " + data.recoveryError + ". Your SQL was kept.");
+        else if (draftLoadWarning) notify("The previous browser draft could not be restored. Copy your answers into Canvas as you work.");
+        else if (data.restoredViews) notify("Restored " + data.restoredViews + (data.restoredViews === 1 ? " saved view." : " saved views.") + " Table data was reloaded from the original database.");
+      } else if (data.type === "view-result" && state.context && state.context.kind === "view" && data.id === state.context.id) {
+        clearTimeout(state.timer); setBusy(false);
+        if (data.error) {
+          $("view-error").textContent = data.error; $("view-error").hidden = false;
+          $("view-status").textContent = "";
+          return;
+        }
+        if (data.schema) renderSchema(data.schema);
+        viewSnapshot = data.views; saveDraft();
+        if (data.action === "drop") {
+          const name = activeView.name;
+          activeView = null; $("view-dialog").close(); clearResults();
+          notify("View deleted: " + name + ". Your SQL was kept.");
+        } else {
+          activeView = data.view;
+          $("view-query").value = activeView.query;
+          $("view-definition").textContent = activeView.sql;
+          setBusy(false);
+          $("view-status").textContent = data.action === "save" ? "Changes saved." + (data.cleaned ? " Pasted formatting characters were cleaned." : "") : "";
+          if (data.action === "save") clearResults();
+        }
       } else if (data.type === "result" && state.context && data.id === state.context.id) {
         clearTimeout(state.timer); setBusy(false);
+        viewSnapshot = data.views; saveDraft();
         if (data.schema) renderSchema(data.schema);
         presentResults(data);
         if (data.schemaWarning) notify("The query completed, but the table list could not refresh: " + data.schemaWarning);
@@ -279,7 +323,7 @@
     currentWorker.onerror = function (event) {
       if (worker === currentWorker) failLoading(event.message || "The SQL engine could not start. Make sure all website files were uploaded.");
     };
-    currentWorker.postMessage({ type: "init", path: config.databasePath });
+    currentWorker.postMessage({ type: "init", path: config.databasePath, views: savedViews || null });
   }
   function failLoading(message) {
     clearTimeout(state.timer); if (worker) worker.terminate();
@@ -321,6 +365,24 @@
     emptyState(timedOut ? "Query reached its time limit" : "Query stopped", "The original database is being restored. Your SQL is still in the editor.", "■");
     $("result-detail").textContent = "Resetting database…";
     startWorker((timedOut ? "Query stopped after " + Math.round((Number(config.queryTimeoutMs) || 15000) / 1000) + " seconds. " : "Query stopped. ") + "The database was reset; your SQL was kept.", timedOut ? "Query reached its time limit" : "Query stopped");
+  }
+  function openView(name) {
+    if (!state.ready || state.busy) return;
+    activeView = null;
+    $("view-title").textContent = "View · " + name;
+    $("view-query").value = ""; $("view-definition").textContent = "";
+    $("view-original").open = false;
+    $("view-dialog").showModal();
+    requestView("read", name);
+  }
+  function requestView(action, name) {
+    if (!state.ready || state.busy) return;
+    $("view-error").hidden = true;
+    $("view-status").textContent = action === "read" ? "Loading view…" : action === "save" ? "Saving changes…" : "Deleting view…";
+    state.id++; state.context = { id: state.id, kind: "view", action, name };
+    setBusy(true);
+    state.timer = setTimeout(() => stopQuery(true), Math.max(1000, Number(config.queryTimeoutMs) || 15000));
+    worker.postMessage({ type: "view", id: state.id, action, name, query: $("view-query").value });
   }
   function showError(error, context) {
     const panel = $("error-panel"); panel.replaceChildren(); panel.hidden = false;
@@ -422,20 +484,24 @@
   async function copySQL() {
     const sql = editor.somethingSelected() ? editor.getSelection() : editor.getValue();
     if (!sql.length) { notify("There is no SQL to copy yet."); return; }
+    const copied = await copyText(sql);
+    notify(copied ? "SQL copied as plain text. Paste it into your Canvas answer." : "This browser blocked the Copy button. Select your SQL and try Ctrl+C (Cmd+C on Mac). Clipboard use still depends on your exam settings.");
+  }
+  async function copyText(sql) {
     try {
       if (!navigator.clipboard || !navigator.clipboard.writeText) throw new Error("Clipboard API unavailable");
       await navigator.clipboard.writeText(sql);
-      notify("SQL copied as plain text. Paste it into your Canvas answer.");
+      return true;
     } catch (_) {
       // A regular user-initiated browser copy; exam-browser restrictions still apply.
       const input = element("textarea");
       input.value = sql; input.style.position = "fixed"; input.style.left = "-9999px";
-      document.body.append(input); input.select();
+      const target = document.activeElement;
+      ($("view-dialog").open ? $("view-dialog") : document.body).append(input); input.select();
       let copied = false;
       try { copied = document.execCommand("copy"); } catch (_) {}
-      input.remove(); editor.focus();
-      if (copied) notify("SQL copied as plain text. Paste it into your Canvas answer.");
-      else notify("This browser blocked the Copy button. Select your SQL and try Ctrl+C (Cmd+C on Mac). Clipboard use still depends on your exam settings.");
+      input.remove(); if (target && target.focus) target.focus();
+      return copied;
     }
   }
   $("run-button").addEventListener("click", runSQL);
@@ -451,6 +517,22 @@
   $("help-button").addEventListener("click", () => $("help-dialog").showModal());
   $("help-close").addEventListener("click", () => $("help-dialog").close());
   $("help-done").addEventListener("click", () => $("help-dialog").close());
+  $("view-save").addEventListener("click", () => { if (activeView) requestView("save", activeView.name); });
+  $("view-delete").addEventListener("click", () => {
+    if (!activeView || !window.confirm("Delete view “" + activeView.name + "”? Its definition will be removed from this tab. The underlying tables will be kept.")) return;
+    requestView("drop", activeView.name);
+  });
+  $("view-copy").addEventListener("click", async () => {
+    if (!activeView) return;
+    const copied = await copyText(activeView.prefix + "\n" + $("view-query").value);
+    $("view-status").textContent = copied ? "View SQL copied. Unsaved edits are included." : "Copy was blocked. Select the query and use Ctrl+C (Cmd+C on Mac).";
+  });
+  ["view-close", "view-done"].forEach(id => $(id).addEventListener("click", () => $("view-dialog").close()));
+  $("view-dialog").addEventListener("cancel", event => { if (state.busy) event.preventDefault(); });
+  $("view-query").addEventListener("input", () => {
+    $("view-status").textContent = "Unsaved changes";
+    $("view-error").hidden = true;
+  });
   $("reset-button").addEventListener("click", function () {
     if (state.ready && !window.confirm("Restore the original database? Any database changes in this tab will be lost. Your SQL will be kept.")) return;
     clearResults(); startWorker("The original database has been restored. Your SQL was kept.");
@@ -481,5 +563,5 @@
   new ResizeObserver(() => editor.refresh()).observe($("editor-host"));
   window.addEventListener("beforeunload", saveDraft);
   updateCursor();
-  startWorker();
+  startWorker(undefined, undefined, viewSnapshot);
 }());

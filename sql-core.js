@@ -67,9 +67,11 @@
     const response = db.exec("SELECT name, type FROM sqlite_schema WHERE type IN ('table','view') AND name NOT LIKE 'sqlite_%' ORDER BY name COLLATE NOCASE");
     if (!response.length) return [];
     return response[0].values.map(function (row) {
-      const info = db.exec("PRAGMA table_xinfo(" + quoteName(row[0]) + ")");
+      let info = [], schemaError;
+      try { info = db.exec("PRAGMA main.table_xinfo(" + quoteName(row[0]) + ")"); }
+      catch (e) { schemaError = String(e.message || e); }
       return {
-        name: row[0], type: row[1],
+        name: row[0], type: row[1], schemaError,
         columns: info.length ? info[0].values.filter(c => c[6] !== 1).map(c => ({
           name: c[1], type: c[2] || "ANY", primary: !!c[5], nullable: !c[3]
         })) : []
@@ -133,5 +135,5 @@
       if (statement) statement.free();
     }
   }
-  return { normalizeSQL, changeDescription, quoteName, getSchema, executeSQL };
+  return { normalizeSQL, changeDescription, quoteName, getSchema, executeSQL, skipTrivia };
 }));

@@ -9,16 +9,16 @@
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="assets/codemirror.css">
   <link rel="stylesheet" href="assets/codemirror-show-hint.css">
-  <link rel="stylesheet" href="styles.css?v=2">
+  <link rel="stylesheet" href="styles.css?v=3">
   <script defer src="assets/codemirror.js"></script>
   <script defer src="assets/codemirror-sql.js"></script>
   <script defer src="assets/codemirror-placeholder.js"></script>
   <script defer src="assets/codemirror-show-hint.js"></script>
   <script defer src="config.js?v=2"></script>
-  <script defer src="sql-core.js"></script>
+  <script defer src="sql-core.js?v=3"></script>
   <script defer src="editor-support.js"></script>
-  <script defer src="workspace-session.js"></script>
-  <script defer src="app.js?v=2"></script>
+  <script defer src="workspace-session.js?v=4"></script>
+  <script defer src="app.js?v=4"></script>
 </head>
 <body data-workspace="practice">
   <header class="topbar">
@@ -55,13 +55,26 @@
     <div class="dialog-heading"><h2>Using SQL Workspace</h2><button id="help-close" class="close-button" aria-label="Close help">×</button></div>
     <div class="help-content">
       <h3>Explore the database</h3><p>Expand a table to see its columns and data types. Select <strong>Preview</strong> to see its records below the editor. Previewing a table does not replace your SQL.</p>
-      <h3>Run your SQL</h3><p>Select <strong>Run</strong>, or press <strong>Ctrl + Enter</strong> (Cmd + Enter on Mac) or <strong>Shift + Enter</strong>. Highlight part of your SQL to run only that selection. Separate multiple statements with semicolons; each statement gets its own results tab. Large results show the total number of rows returned and a limited preview.</p>
+      <h3>Manage a view</h3><p>Views have a <strong>View SQL / Edit</strong> button in the sidebar. It shows the saved query and lets you change it with <strong>Save changes</strong>. Expand <strong>Full saved CREATE VIEW statement</strong> to see the complete definition, or use <strong>Copy view SQL</strong> to copy it with your edits. <strong>Delete view</strong> removes the view after confirmation; it keeps the underlying tables. <strong>Preview</strong> shows rows. Views belong to this practice or test session. Saved views are restored after a refresh when browser session storage is available. Reset database removes them.</p><h3>Run your SQL</h3><p>Select <strong>Run</strong>, or press <strong>Ctrl + Enter</strong> (Cmd + Enter on Mac) or <strong>Shift + Enter</strong>. Highlight part of your SQL to run only that selection. Separate multiple statements with semicolons; each statement gets its own results tab. Large results show the total number of rows returned and a limited preview.</p>
       <h3>Complete a word or name</h3><p>Press <strong>Ctrl + Space</strong> or select <strong>Complete</strong> for matching SQLite keywords, tables, views, and columns. Use the arrow keys and Enter or Tab to insert a suggestion; Escape closes the list. Completion changes only the current word, after you choose a suggestion. It is unavailable inside text values or comments.</p><p>Typing a table’s name and a period narrows the list to that table’s columns. For other prefixes, such as an alias, the list shows matching columns from the database; it does not analyze aliases, joins, or common table expressions. The source table is shown beside each column.</p>
       <h3>Copy to and from Canvas</h3><p><strong>Copy SQL</strong> copies the highlighted selection, or all your SQL if nothing is selected, as plain text. Paste it into your Canvas answer. You can paste SQL back into this editor. Clipboard access still depends on Canvas and your exam browser settings; this workspace does not bypass those restrictions.</p>
       <h3>Clean pasted text</h3><p>The editor checks pasted SQL for unusual spaces, invisible formatting characters, and curly quotation marks. Cleanup preserves characters inside existing quoted values and comments. A notification identifies changes and offers <strong>Undo cleanup</strong>. <strong>Clean text</strong> checks the full editor; Run also checks before executing. Review quoted values yourself if they contain unwanted characters.</p>
       <h3>Understand errors</h3><p>After Run, SQLite’s original error appears beside the failed statement in the editor and in the results panel. The marker identifies the <strong>start of the failed statement</strong>, not necessarily the exact character causing the error. Inline markers clear when you edit the SQL. There is no separate background syntax checker and no added explanation or suggested correction.</p><p>Execution stops at the first error. Earlier successful statements remain applied, and their result tabs remain available.</p>
-      <h3>Reset, stop, and save</h3><p><strong>Reset database</strong> restores the original data while keeping your SQL. Stopping a long query, or reaching its time limit, also resets the database. Changes to the database stay in this browser tab’s memory. Refreshing the page removes created views and other database changes.</p><p>Practice and test drafts are separate. Your SQL draft is restored after refreshing this tab within the same practice or test session when browser storage is available. Each new test starts with its own draft. It is not a submitted answer or a backup. Copy your final SQL into Canvas as instructed.</p>
+      <h3>Reset, stop, and save</h3><p><strong>Reset database</strong> restores the original data while keeping your SQL. Stopping a long query, or reaching its time limit, also resets the database. Changes to the database stay in this browser tab’s memory. Refreshing reloads the original table data and then restores saved views for this practice or test session. New tables and changes to table data are not recovered.</p><p>Practice and test drafts are separate. Your SQL draft and saved view definitions are restored after refreshing this tab within the same practice or test session when browser storage is available. Unsaved edits in the view dialog are not recovered. A full browser crash or restart is recoverable only if the browser restores this session. Each new test starts with its own draft and views. It is not a submitted answer or a backup. Copy your final SQL into Canvas as instructed.</p>
     </div><div class="dialog-footer"><button id="help-done" class="button primary">Got it</button></div>
+  </dialog>
+  <dialog id="view-dialog" aria-labelledby="view-title">
+    <div class="dialog-heading"><h2 id="view-title">View SQL</h2><button id="view-close" class="close-button" aria-label="Close view editor">×</button></div>
+    <div class="view-content">
+      <p>Edit the query below, then select <strong>Save changes</strong>. The view name stays the same. Your main SQL editor is kept unchanged.</p>
+      <label for="view-query">View query</label>
+      <textarea id="view-query" spellcheck="false" rows="9" aria-describedby="view-hint"></textarea>
+      <p id="view-hint">Enter the SELECT query, including a WITH clause if needed. Saving keeps the existing view if SQLite reports an error.</p>
+      <details id="view-original"><summary>Full saved CREATE VIEW statement</summary><pre id="view-definition"></pre></details>
+      <pre id="view-error" class="view-error" role="alert" hidden></pre>
+      <p id="view-status" role="status"></p>
+    </div>
+    <div class="dialog-footer view-footer"><button id="view-delete" class="button danger">Delete view</button><button id="view-copy" class="button secondary">Copy view SQL</button><button id="view-done" class="button secondary">Close</button><button id="view-save" class="button primary">Save changes</button></div>
   </dialog>
 </body>
 </html>

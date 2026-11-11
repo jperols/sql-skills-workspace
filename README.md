@@ -15,7 +15,8 @@ There are no added error explanations, suggested query corrections, or AI.
 - **Test:** https://jperols.github.io/sql-skills-workspace/test.html
 
 The original link is now the practice workspace. The test page starts closed.
-Each page has its own saved SQL draft. Test drafts also belong to one test ID.
+Each page has its own saved SQL draft and view definitions. Test drafts and views
+also belong to one test ID.
 Practice drafts and drafts from the earlier unseparated editor are never restored
 on the test page. Both pages load a fresh copy of the same bundled database;
 student-created views and changes are not shared.
@@ -47,11 +48,13 @@ For example, the complete settings file for a new test can be:
 After the test, set `open` to `false` and commit. This closes new visits and
 refreshes after deployment; it does not remotely erase or close tabs already
 open. For the next test, use another new ID before opening it. Reusing an ID
-can restore that test's old draft in a surviving browser session.
+can restore that test's old draft and views in a surviving browser session.
 
-Refreshing during the same test normally restores that test's SQL, if session
-storage is available. Refreshing always reloads the original database, removing
-created views and data changes. Students must submit answers through Canvas;
+Refreshing during the same test restores that test's SQL and saved view
+definitions, if session storage is available. The original database is loaded
+first and saved views are recreated; table data changes and newly created tables
+are not restored. After a browser crash or restart, recovery works only if the
+browser restores the same session storage. Students must submit answers through Canvas;
 this workspace is not permanent storage or a submission system.
 
 The test page fetches the settings anew before it reads any saved draft. Closed,
@@ -102,6 +105,48 @@ Official GitHub instructions:
 The private review copy supplied in ChatGPT is for the instructor’s review.
 Use your own published GitHub Pages version for student access.
 
+## View controls
+
+A view runs in the current browser tab's in-memory database. Its saved definition
+is also kept in that tab's session storage, alongside the SQL draft, so a refresh
+can restore it for the same practice or test ID. Nothing is uploaded or shared
+with another student, device, or test ID. A full browser restart recovers work
+only if the browser restores that session; manually opening a new tab is not a
+recovery guarantee.
+
+Recovery saves definitions after SQL runs and after successful view edits or
+deletions. It does not automatically run the editor's SQL. Deleted views stay
+deleted after refresh. Unsaved edits in the view dialog are not recovered.
+**Reset database**, **Stop**, and the execution time limit deliberately reset
+the database and saved view definitions while keeping the main SQL draft.
+
+Table data changes and newly created tables are not recovered. A restored view
+that depends on a student-created table may show SQLite's missing-table error
+until that table is created again. Main-database view triggers are recovered;
+temporary or attached database objects and transaction state are not.
+
+- **Preview** shows the view's rows without changing the main editor.
+- **View SQL / Edit** opens the saved query. Students edit the SELECT query and
+  select **Save changes**, without entering DROP VIEW or CREATE VIEW commands.
+- **Full saved CREATE VIEW statement** shows the complete stored definition.
+- **Copy view SQL** copies the complete definition with the current dialog edits,
+  including unsaved edits, so it can be submitted through Canvas.
+- **Delete view** asks for confirmation, then removes the view. It does not delete
+  the underlying tables. SQLite also removes triggers attached to a deleted view.
+
+Saving preserves the view name and any explicit column list. SQLite validates the
+replacement before the change is accepted. If validation fails, the original
+view and its triggers are restored, and the original SQLite error appears in the
+dialog. The main SQL editor is never overwritten by these controls. A successful
+save clears stale displayed results; use Preview to see the updated rows.
+
+An edit uses a savepoint, so it does not commit an explicit transaction started
+by the student. Normal INSTEAD OF triggers are preserved during an edit. Views
+with temporary triggers must be managed in the SQL editor. The sidebar lists
+objects in the main database; temporary/attached database objects can still be
+used through SQL. Other views that depend on changed column names may need to be
+updated by the student as well.
+
 ## Student workflow
 
 - Expand a table to see its columns and types. **Preview** displays its rows
@@ -139,9 +184,10 @@ Use your own published GitHub Pages version for student access.
 - **Reset database** restores the included database while keeping SQL.
   **Stop**, or the execution time limit, terminates the worker and also resets
   the database. Normal queries are not automatically reset.
-- When browser storage is available, the SQL draft survives refreshes in the
-  same tab. It is session storage, not a cloud backup, exam submission, or
-  cross-device save. Database edits do not survive refresh.
+- When browser storage is available, the SQL draft and saved view definitions
+  survive refreshes in the same tab and test ID. A full browser restart depends
+  on restoring that same browser session. This is not a cloud backup, exam
+  submission, or cross-device save. Table edits do not survive refresh.
 
 ## Instructor settings
 
@@ -156,7 +202,7 @@ Edit **config.js** to change these settings:
 | maxDisplayedRows | 1000 | Maximum stored/displayed rows per result |
 | pageSize | 100 | Rows shown on each page |
 | queryTimeoutMs | 15000 | Maximum query run time before stop and reset |
-| preserveQueryInTab | true | Restore the SQL draft after refreshing this tab |
+| preserveQueryInTab | true | Restore SQL and saved views after refreshing this tab |
 | draftVersion | northwind-practice-v1 | Practice draft key only; test IDs are in test-settings.json |
 
 The returned-row count covers the whole executed result, even when only the
@@ -220,7 +266,7 @@ specific SQLite versions/builds included in SQLiteOnline or Letos.
 ## Development
 
 The source project keeps the deployable files in **dist/**.
-Run checks with: node --test tests/core.test.js tests/editor-support.test.js tests/workspace-session.test.js
+Run checks with: node --test tests/core.test.js tests/editor-support.test.js tests/workspace-session.test.js tests/view-manager.test.js
 
 The portable ZIP places the contents of dist/ at its root for easy GitHub
 Pages upload. Instructor documentation accompanies those files.

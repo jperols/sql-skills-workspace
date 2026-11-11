@@ -22,14 +22,24 @@
     }
     return { mode, open: true, label, testId: id, draftKey: "sql-workspace:v2:test:" + id };
   }
-  function restore(storage, session, initialSQL) {
-    if (!session.open || !session.draftKey) return "";
+  function load(storage, session, initialSQL) {
+    if (!session.open || !session.draftKey) return { sql: "", views: null, databasePath: null };
     const saved = storage.getItem(session.draftKey);
-    return saved === null ? (initialSQL || "") : saved;
+    if (saved === null) return { sql: initialSQL || "", views: null, databasePath: null };
+    if (saved.startsWith('{"kind":"sql-workspace-checkpoint"')) {
+      const record = JSON.parse(saved);
+      if (record.version !== 1 || typeof record.sql !== "string") throw new Error("The saved workspace could not be read.");
+      return { sql: record.sql, views: record.views || null, databasePath: record.databasePath || null };
+    }
+    // Drafts saved by the earlier version contain SQL text only.
+    return { sql: saved, views: null, databasePath: null };
   }
-  function save(storage, session, sql) {
+  function restore(storage, session, initialSQL) {
+    return load(storage, session, initialSQL).sql;
+  }
+  function save(storage, session, sql, views, databasePath) {
     if (!session.open || !session.draftKey) return;
-    storage.setItem(session.draftKey, sql);
+    storage.setItem(session.draftKey, JSON.stringify({ kind: "sql-workspace-checkpoint", version: 1, sql, views: views || null, databasePath: databasePath || null }));
   }
-  return { resolve, restore, save };
+  return { resolve, restore, load, save };
 }));
