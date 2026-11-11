@@ -12,7 +12,9 @@ There are no added error explanations, suggested query corrections, or AI.
 ## Practice and test separation
 
 - **Practice:** https://jperols.github.io/sql-skills-workspace/
-- **Test:** https://jperols.github.io/sql-skills-workspace/test.html
+
+Distribute the test workspace link inside the assigned Canvas quiz. It is not
+listed in this README.
 
 The original link is the practice workspace. Both pages are open continuously;
 the test page uses `northwind-test-v1`. Closing the test remains optional.
@@ -143,7 +145,8 @@ Saving preserves the view name and any explicit column list. SQLite validates th
 replacement before the change is accepted. If validation fails, the original
 view and its triggers are restored, and the original SQLite error appears in the
 dialog. The main SQL editor is never overwritten by these controls. A successful
-save clears stale displayed results; use Preview to see the updated rows.
+save closes the view editor and clears stale displayed results; use Preview to
+see the updated rows. If saving fails, the editor stays open for correction.
 
 An edit uses a savepoint, so it does not commit an explicit transaction started
 by the student. Normal INSTEAD OF triggers are preserved during an edit. Views

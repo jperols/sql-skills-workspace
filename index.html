@@ -18,7 +18,7 @@
   <script defer src="sql-core.js?v=3"></script>
   <script defer src="editor-support.js"></script>
   <script defer src="workspace-session.js?v=4"></script>
-  <script defer src="app.js?v=4"></script>
+  <script defer src="app.js?v=5"></script>
 </head>
 <body data-workspace="practice">
   <header class="topbar">
@@ -69,7 +69,7 @@
       <p>Edit the query below, then select <strong>Save changes</strong>. The view name stays the same. Your main SQL editor is kept unchanged.</p>
       <label for="view-query">View query</label>
       <textarea id="view-query" spellcheck="false" rows="9" aria-describedby="view-hint"></textarea>
-      <p id="view-hint">Enter the SELECT query, including a WITH clause if needed. Saving keeps the existing view if SQLite reports an error.</p>
+      <p id="view-hint">Enter the SELECT query. Saving keeps the existing view if SQLite reports an error.</p>
       <details id="view-original"><summary>Full saved CREATE VIEW statement</summary><pre id="view-definition"></pre></details>
       <pre id="view-error" class="view-error" role="alert" hidden></pre>
       <p id="view-status" role="status"></p>

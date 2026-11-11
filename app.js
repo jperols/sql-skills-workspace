@@ -302,13 +302,17 @@
           const name = activeView.name;
           activeView = null; $("view-dialog").close(); clearResults();
           notify("View deleted: " + name + ". Your SQL was kept.");
+        } else if (data.action === "save") {
+          const name = data.view.name;
+          activeView = null; $("view-dialog").close(); clearResults();
+          notify("View saved: " + name + "." + (data.cleaned ? " Pasted formatting characters were cleaned." : ""));
+          editor.focus();
         } else {
           activeView = data.view;
           $("view-query").value = activeView.query;
           $("view-definition").textContent = activeView.sql;
           setBusy(false);
-          $("view-status").textContent = data.action === "save" ? "Changes saved." + (data.cleaned ? " Pasted formatting characters were cleaned." : "") : "";
-          if (data.action === "save") clearResults();
+          $("view-status").textContent = "";
         }
       } else if (data.type === "result" && state.context && data.id === state.context.id) {
         clearTimeout(state.timer); setBusy(false);
